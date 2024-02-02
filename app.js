@@ -12,6 +12,8 @@ const snakeX = parseInt(boardSize / 2);
 gameBoard[snakeY][snakeX] = 's';
 let snake = [snakeY + '_' + snakeX];
 
+let score = 0;
+
 let direction = 'u';
 
 let foodY, foodX, foodEmojiIndex;
@@ -43,7 +45,11 @@ function playGame () {
     let [cursorY, cursorX] = calculateNewCursor();
     
     if ( ifHitsBorder(cursorY, cursorX) ) {
-        return 0;
+        gameOver();
+    }
+
+    if (hitsSnake (cursorY, cursorX)){
+        gameOver();
     }
    
     snake.unshift(cursorY + '_' + cursorX);
@@ -115,14 +121,25 @@ function calculateNewCursor () {
 function ifHitsBorder ( y, x ) {
 
     if ( y < 0 || y >= boardSize || x < 0 || x >= boardSize ) {
-        clearInterval(intervalID);
-        intervalID = null;
-        messageDiv.innerText = 'Game Over';
-        messageDiv.classList.remove('hidden');
         return true;
     }
 
     return false;
+}
+
+// test if snake hit itself
+function hitsSnake (y, x) {
+    if (snake.includes(y + "_" + x) ) {
+    return true;
+    }
+}
+
+//game over stuff
+function gameOver () {
+    clearInterval(intervalID);
+    intervalID = null;
+    messageDiv.innerText = "Game Over";
+    messageDiv.classList.remove("hidden")
 }
 
 // gerenate food with random
