@@ -1,24 +1,67 @@
 const gameBoardTable = document.getElementById('gameboard');
 const messageDiv = document.getElementById('message');
+const scoreDiv = document.getElementById('score');
+const resetBtn = document.getElementById('reset');
+const optionCheckBoxes = document.querySelectorAll('#options input[type="checkbox"]');
 
 const foodArray = ['&#127815', '&#127816', '&#127817', '&#127822', '&#127826', '&#129373', '&#129361', '&#127814', '&#129365', '&#127812', '&#127829'];
 const boardSize = 20
 
-let gameBoard = [...Array(boardSize).keys()].map(() => [...Array(boardSize).keys()].map(() => 0));
+let snakeY, snakeX, score, snake, direction, foodY, foodX, foodEmojiIndex, speedOption, wallOption, speed, timeoutID;
 
-const snakeY = parseInt(boardSize / 2);
-const snakeX = parseInt(boardSize / 2);
+resetBtn.addEventListener('click', e => {
+    initGame();
+});
 
-gameBoard[snakeY][snakeX] = 's';
-let snake = [snakeY + '_' + snakeX];
+// initialize game
+function initGame () {
 
-let score = 0;
+    clearTimeout(timeoutID);
+    timeoutID = null;
 
-let direction = 'u';
+    snakeY = parseInt(boardSize / 2);
+    snakeX = parseInt(boardSize / 2);
 
-let foodY, foodX, foodEmojiIndex;
+    score = 0;
 
-let intervalID = setInterval(playGame, 200);
+    snake = [snakeY + '_' + snakeX];
+
+    direction = 'u';
+
+    speedOption = localStorage.getItem('speed-cb') == "true" ? true : false;
+    wallOption = localStorage.getItem('wall-cb') == "true" ? true : false;
+
+    speed = 200;
+
+    messageDiv.innerText = '';
+    messageDiv.classList.add('hidden');
+
+    (function repeat() {
+        timeoutID = setTimeout(repeat, speed);
+        runGame();
+    })();
+
+    addFood();
+    updateHighScore();
+    
+}
+
+initGame();
+
+optionCheckBoxes.forEach( cb => {
+
+    const id = cb.getAttribute('id');
+
+    if ( localStorage.getItem(id) == "true" ) {
+        cb.checked = true;
+    } else {
+        cb.checked = false;
+    }
+
+    cb.addEventListener('change', e => {
+        localStorage.setItem(id, e.target.checked);
+    });
+});
 
 document.addEventListener ('keydown', e => {
     switch ( e.key ) {
@@ -37,18 +80,16 @@ document.addEventListener ('keydown', e => {
     }
 });
 
-addFood();
-
 // game engine
-function playGame () {
+function runGame () {
 
     let [cursorY, cursorX] = calculateNewCursor();
     
-    if ( ifHitsBorder(cursorY, cursorX) ) {
+    if ( !wallOption && hitsBorder(cursorY, cursorX) ) {
         gameOver();
     }
 
-    if (hitsSnake (cursorY, cursorX)){
+    if ( hitsSnake(cursorY, cursorX) ) {
         gameOver();
     }
    
@@ -63,9 +104,9 @@ function drawGameBoard () {
 
     gameBoardTable.innerHTML = '';
     
-    gameBoard.forEach( (row, y) => {
+    for ( let y = 0; y < boardSize; y++ ) {
         const boardRowTr = document.createElement('tr');
-        row.forEach( (cell, x) => {
+        for ( let x = 0; x < boardSize; x++ ) {
             const boardCellTd = document.createElement('td');
             const id = y + '_' + x;
             boardCellTd.setAttribute('id', id);
@@ -73,8 +114,6 @@ function drawGameBoard () {
             // draw snake
             if ( snake.includes(id) ) {
                 boardCellTd.innerHTML = '&#128055';
-
-                // boardCellTd.classList.add('snake');
             }
 
             // draw food
@@ -83,9 +122,11 @@ function drawGameBoard () {
             }
 
             boardRowTr.append(boardCellTd);
-        });
+        }
         gameBoardTable.append(boardRowTr);
-    });
+    }
+
+    scoreDiv.innerText = 'Score: ' + score;
 }
 
 
@@ -96,29 +137,49 @@ function calculateNewCursor () {
 
     switch ( direction ) {
         case 'u':
-            y--;
+            if ( wallOption && y == 0 ) {
+                y = boardSize - 1;
+            } else {
+                y--;
+            }
             break;
         case 'd':
-            y++;
+            if ( wallOption && y == (boardSize - 1) ) {
+                y = 0;
+            } else {
+                y++;
+            }
             break;
         case 'l':
-            x--;
+            if ( wallOption && x == 0 ) {
+                x = boardSize - 1;
+            } else {
+                x--;
+            }
             break;
         case 'r':
-            x++;
+            if ( wallOption && x == (boardSize - 1) ) {
+                x = 0;
+            } else {
+                x++;
+            }
             break;
     }
 
     if ( y == foodY && x == foodX ) {
         addFood();
+        score++;
         snake.push(undefined);
+        if ( speedOption ) {
+            speed *= 0.95;
+        }
     }
 
     return [y, x];    
 }
 
 // test if snake hits the border
-function ifHitsBorder ( y, x ) {
+function hitsBorder ( y, x ) {
 
     if ( y < 0 || y >= boardSize || x < 0 || x >= boardSize ) {
         return true;
@@ -127,23 +188,32 @@ function ifHitsBorder ( y, x ) {
     return false;
 }
 
-// test if snake hit itself
-function hitsSnake (y, x) {
-    if (snake.includes(y + "_" + x) ) {
-    return true;
+// test if snake hits itself
+function hitsSnake ( y, x ) {
+    if ( snake.includes(y + '_' + x) ) {
+        return true;
     }
+
+    return false;
 }
 
-//game over stuff
+// game over stuff
 function gameOver () {
-    clearInterval(intervalID);
-    intervalID = null;
-    messageDiv.innerText = "Game Over";
-    messageDiv.classList.remove("hidden")
+
+    clearTimeout(timeoutID);
+    timeoutID = null;
+
+    messageDiv.innerText = 'Game Over';
+    messageDiv.classList.remove('hidden');
+
+    if ( localStorage.getItem('tak22SnakeScore') < score ) {
+        localStorage.setItem('tak22SnakeScore', score);
+        updateHighScore();
+    }
+
 }
 
 // gerenate food with random
-
 function addFood () {
 
     do {
@@ -152,4 +222,11 @@ function addFood () {
         foodEmojiIndex = Math.floor(Math.random() * foodArray.length);
     } while ( snake.includes(foodY + '_' + foodX) )
 
+}
+
+// update high score
+function updateHighScore () {
+    const highScore = localStorage.getItem('tak22SnakeScore');
+    const highScoreDiv = document.getElementById('high-score');
+    highScoreDiv.innerText = 'High score: ' + highScore;
 }
